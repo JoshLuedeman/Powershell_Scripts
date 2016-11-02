@@ -1,0 +1,35 @@
+<?xml version = "1.0"?>
+<Config>
+	<InstallRegion>East US</InstallRegion>
+	<SubscriptionName>Pay-As-You-Go</SubscriptionName>
+	<PublishSettingsPath>C:\Users\joshu_000\Desktop\PWC_Pay-As-You-Go_credentials.publishsettings</PublishSettingsPath>
+	<SecStorageNeeded>No</SecStorageNeeded>
+	<MainStorage>
+		<NewStorage>Yes</NewStorage>
+		<Name>sqlsatjl</Name>
+		<NewContainer>Yes</NewContainer>
+		<ContainerName>MASD</ContainerName>
+	</MainStorage>
+	<SecStorage>
+		<NewStorage>No</NewStorage>
+		<Name></Name>
+		<NewContainer></NewContainer>
+		<ContainerName></ContainerName>
+	</SecStorage>
+	<Metastore>
+		<ExtMetastore>No</ExtMetastore>
+		<New></New>
+		<NewServer></NewServer>
+		<ServerName></ServerName>
+		<UserName></UserName>
+		<Pwd></Pwd>
+		<HiveDbName></HiveDbName>
+		<OozieDbName></OozieDbName>		
+	</Metastore>
+	<Cluster>
+		<Name>HdpNoMASD</Name>
+		<NodeNum>3</NodeNum>
+		<UserName>HdpCluster</UserName>
+		<Pwd>H@d00p2014</Pwd>
+	</Cluster>
+</Config>
