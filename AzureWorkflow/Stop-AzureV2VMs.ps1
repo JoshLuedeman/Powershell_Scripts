@@ -1,88 +1,86 @@
-<#
-.SYNOPSIS
-  Connects to Azure and stops of all VMs in the specified Azure subscription or resource group
-
-.DESCRIPTION
-  This runbook connects to Azure and stops all VMs in an Azure subscription or resource group.  
-  You can attach a schedule to this runbook to run it at a specific time. Note that this runbook does not stop
-  Azure classic VMs. Use https://gallery.technet.microsoft.com/scriptcenter/Stop-Azure-Classic-VMs-7a4ae43e for that.
-
-  REQUIRED AUTOMATION ASSETS
-  1. An Automation variable asset called "AzureSubscriptionId" that contains the GUID for this Azure subscription.  
-     To use an asset with a different name you can pass the asset name as a runbook input parameter or change the default value for the input parameter.
-  2. An Automation credential asset called "AzureCredential" that contains the Azure AD user credential with authorization for this subscription. 
-     To use an asset with a different name you can pass the asset name as a runbook input parameter or change the default value for the input parameter.
-
-.PARAMETER AzureCredentialAssetName
-   Optional with default of "AzureCredential".
-   The name of an Automation credential asset that contains the Azure AD user credential with authorization for this subscription. 
-   To use an asset with a different name you can pass the asset name as a runbook input parameter or change the default value for the input parameter.
-
-.PARAMETER AzureSubscriptionIdAssetName
-   Optional with default of "AzureSubscriptionId".
-   The name of An Automation variable asset that contains the GUID for this Azure subscription.
-   To use an asset with a different name you can pass the asset name as a runbook input parameter or change the default value for the input parameter.
-
-.PARAMETER ResourceGroupName
-   Optional
-   Allows you to specify the resource group containing the VMs to stop.  
-   If this parameter is included, only VMs in the specified resource group will be stopped, otherwise all VMs in the subscription will be stopped.  
-
-.NOTES
-   AUTHOR: System Center Automation Team 
-   LASTEDIT: January 7, 2016
-#>
-
-param (
-    [Parameter(Mandatory=$false)] 
-    [String]  $AzureCredentialAssetName = 'AzureCredential',
-        
-    [Parameter(Mandatory=$false)]
-    [String] $AzureSubscriptionIdAssetName = 'AzureSubscriptionId',
-
-    [Parameter(Mandatory=$false)] 
-    [String] $ResourceGroupName
-)
-
-# Returns strings with status messages
-[OutputType([String])]
-
-# Connect to Azure and select the subscription to work against
-$Cred = Get-AutomationPSCredential -Name $AzureCredentialAssetName -ErrorAction Stop
-$null = Add-AzureRmAccount -Credential $Cred -ErrorAction Stop -ErrorVariable err
-
-if($err) {
-	throw $err
-}
-
-$SubId = Get-AutomationVariable -Name $AzureSubscriptionIdAssetName -ErrorAction Stop
-
-# If there is a specific resource group, then get all VMs in the resource group,
-# otherwise get all VMs in the subscription.
-if ($ResourceGroupName) 
-{ 
-	$VMs = Get-AzureRmVM -ResourceGroupName $ResourceGroupName
-}
-else 
-{ 
-	$VMs = Get-AzureRmVM
-}
-
-# Stop each of the VMs
-foreach ($VM in $VMs)
+﻿workflow StopRmVms
 {
-	$StopRtn = $VM | Stop-AzureRmVM -Force -ErrorAction Continue
+               try
+               {
+                              # Get the connection "AzureRunAsConnection "
+                              $servicePrincipalConnection=Get-AutomationConnection -Name 'AzureRunAsConnection'         
 
-	if ($StopRtn.Status -ne 'Succeeded')
-	{
-		# The VM failed to stop, so send notice
-        Write-Output ($VM.Name + " failed to stop")
-        Write-Error ($VM.Name + " failed to stop. Error was:") -ErrorAction Continue
-		Write-Error (ConvertTo-Json $StopRtn.Error) -ErrorAction Continue
-	}
-	else
-	{
-		# The VM stopped, so send notice
-		Write-Output ($VM.Name + " has been stopped")
-	}
+                              "Logging in to Azure..."
+                              Add-AzureRmAccount `
+                                             -ServicePrincipal `
+                                             -TenantId $servicePrincipalConnection.TenantId `
+                                             -ApplicationId $servicePrincipalConnection.ApplicationId `
+                                             -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint 
+               }
+               catch {
+                              if (!$servicePrincipalConnection)
+                              {
+                                             $ErrorMessage = "Connection $connectionName not found."
+                                             throw $ErrorMessage
+                              } else{
+                                             Write-Error -Message $_.Exception
+                                             throw $_.Exception 
+                              }
+               }
+
+               $AzureSubscriptionIdAssetName = Get-AutomationVariable -Name 'SubscriptionId'
+               Select-AzureRmSubscription -SubscriptionName $AzureSubscriptionIdAssetName
+
+    $dbServer = $null
+    $dbUser = $null
+    $dbPass = $null
+
+    # Get contents of the whitelist
+    if($dbServer -ne $null)
+    {
+        $sqlqry = "EXEC azure.get_whitelist 'DW';"
+        InlineScript{$whitelist = Invoke-Sqlcmd -ServerInstance $dbServer -Database PWReporting -Query $sqlcmd -Username $dbUser -Password $dbPass}
+    }
+    else
+    {
+        $whitelist = @($null)
+    }
+
+               $ResourceGroups = Get-AzureRmResourceGroup
+
+               foreach($ResourceGroup in $ResourceGroups)
+               {
+                              Write-Output ("Showing all VMs in resource group " + $ResourceGroup.ResourceGroupName)
+                              $VMs = Get-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName
+
+                                             foreach -parallel ($vm in $VMs)
+                                             {       
+                                                            if($whitelist.ItemArray -contains $vm.Name)
+                {
+                    Write-Output("$vm.Name is in the whitelist. Passing")
+                }
+                else
+                {
+                    $stopRtn = Stop-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName -Name $VM.Name -force -ea SilentlyContinue
+                    $count=1
+                    if(($stopRtn.OperationStatus) -ne 'Succeeded')
+                       {
+                        if($whitelist.ItemArray -contains $sn)
+                        {
+                            do{
+                                Write-Output "Failed to stop $($VM.Name). Retrying in 60 seconds..."
+                                Start-Sleep -Seconds 60 
+                                $stopRtn = Stop-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName -Name $VM.Name -force -ea SilentlyContinue
+                                #$stopRtn.OperationStatus = "Succeeded"
+                                Write-Output "Stop-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName -Name $VM.Name -force -ea SilentlyContinue"
+                                $count++
+                                }
+                             while(($stopRtn.OperationStatus) -ne 'Succeeded' -and $count -lt 5)
+                        }
+                        }
+            
+                    if($stopRtn){Write-Output "Stop-AzureRmVM cmdlet for $($VM.Name) $($stopRtn.OperationStatus) on attempt number $count of 5."}
+                }
+                                             }
+
+               }
+               
+               Write-Output ("Stop Azure RM VMs Runbook complete")
+
+
 }
