@@ -1,13 +1,13 @@
-﻿workflow StopAzureDW
+workflow StopAzureDWs
 {
         param (
         [Parameter(Mandatory=$false)] 
         [String]  $connectionName = 'AzureRunAsConnection',
         
         [Parameter(Mandatory=$false)]
-        [String] $SubscriptionId = Get-AzureAutomationVariable -Name -SubscriptionId
+        [String] $SubscriptionId = ''
     )
-
+        $SubscrtiptionId = Get-AutomationVariable -Name 'SubscriptionId'
                try
                {
                               # Get the connection "AzureRunAsConnection "
@@ -31,19 +31,19 @@
                               }
                }
     
-    $dbServer = $null
-    $dbUser = $null
-    $dbPass = $null
+    $dbServer = Get-AzureAutomationVariable -Name 'dbserver'
+    $dbUser = Get-AutomationVariable -Name 'dbuser'
+    $dbPass = Get-AzureAutomationVariable -Name 'dbpass'
+    $db = Get-AutomationVariable -Name 'db_config'
 
     # Azure Subscription Name to be looked at
-    
     Select-AzureRmSubscription -SubscriptionId $SubscriptionId 
 
     # Get contents of the whitelist
     if($dbServer -ne $null)
     {
         $sqlqry = "EXEC azure.get_whitelist 'DW';"
-        InlineScript{$whitelist = Invoke-Sqlcmd -ServerInstance $dbServer -Database PWReporting -Query $sqlcmd -Username $dbUser -Password $dbPass}
+        InlineScript{$whitelist = Invoke-Sqlcmd -ServerInstance $dbServer -Database $db -Query $sqlcmd -Username $dbUser -Password $dbPass}
     }
     else
     {

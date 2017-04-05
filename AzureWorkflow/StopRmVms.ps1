@@ -1,4 +1,4 @@
-﻿workflow StopRmVms
+workflow StopRmVms
 {
                try
                {
@@ -26,15 +26,16 @@
                $AzureSubscriptionIdAssetName = Get-AutomationVariable -Name 'SubscriptionId'
                Select-AzureRmSubscription -SubscriptionName $AzureSubscriptionIdAssetName
 
-    $dbServer = $null
-    $dbUser = $null
-    $dbPass = $null
+    $dbServer = Get-AzureAutomationVariable -Name 'dbserver'
+    $dbUser = Get-AutomationVariable -Name 'dbuser'
+    $dbPass = Get-AzureAutomationVariable -Name 'dbpass'
+    $db = Get-AutomationVariable -Name 'db_config'
 
     # Get contents of the whitelist
     if($dbServer -ne $null)
     {
-        $sqlqry = "EXEC azure.get_whitelist 'DW';"
-        InlineScript{$whitelist = Invoke-Sqlcmd -ServerInstance $dbServer -Database PWReporting -Query $sqlcmd -Username $dbUser -Password $dbPass}
+        $sqlqry = "EXEC azure.get_whitelist 'VM';"
+        InlineScript{$whitelist = Invoke-Sqlcmd -ServerInstance $dbServer -Database $db -Query $sqlcmd -Username $dbUser -Password $dbPass}
     }
     else
     {
@@ -65,9 +66,9 @@
                             do{
                                 Write-Output "Failed to stop $($VM.Name). Retrying in 60 seconds..."
                                 Start-Sleep -Seconds 60 
-                                $stopRtn = Stop-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName -Name $VM.Name -force -ea SilentlyContinue
+                                $stopRtn = Stop-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName.ToString() -Name $VM.Name.ToString() -force -ea SilentlyContinue
                                 #$stopRtn.OperationStatus = "Succeeded"
-                                Write-Output "Stop-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName -Name $VM.Name -force -ea SilentlyContinue"
+                                Write-Output "Stop-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName.ToString() -Name $VM.Name.ToString() -force -ea SilentlyContinue"
                                 $count++
                                 }
                              while(($stopRtn.OperationStatus) -ne 'Succeeded' -and $count -lt 5)
